@@ -296,12 +296,16 @@ export default function Dashboard({
           <Sparkles size={16} style={{ color: 'var(--primary)' }} /> Quick Operations Panel
         </h3>
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <button onClick={() => onOpenQuickAction('register')} className="btn btn-primary" style={{ background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%)' }}>
-            <PlusCircle size={15} /> Register Asset
-          </button>
-          <button onClick={() => onOpenQuickAction('allocate')} className="btn btn-secondary" style={{ borderColor: 'var(--primary-border)', color: 'var(--primary)' }}>
-            <Users size={15} /> Allocate Asset
-          </button>
+          {['Admin', 'Asset Manager'].includes(role) && (
+            <button onClick={() => onOpenQuickAction('register')} className="btn btn-primary" style={{ background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%)' }}>
+              <PlusCircle size={15} /> Register Asset
+            </button>
+          )}
+          {['Admin', 'Asset Manager'].includes(role) && (
+            <button onClick={() => onOpenQuickAction('allocate')} className="btn btn-secondary" style={{ borderColor: 'var(--primary-border)', color: 'var(--primary)' }}>
+              <Users size={15} /> Allocate Asset
+            </button>
+          )}
           <button onClick={() => onOpenQuickAction('booking')} className="btn btn-secondary">
             <Calendar size={15} /> Book Resource
           </button>

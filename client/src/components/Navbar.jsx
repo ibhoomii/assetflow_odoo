@@ -8,7 +8,8 @@ export default function Navbar({
   onSwitchUser,
   notifications,
   onMarkNotificationsAsRead,
-  onClearNotifications
+  onClearNotifications,
+  onNavigate
 }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserSwitcher, setShowUserSwitcher] = useState(false);
@@ -233,6 +234,26 @@ export default function Navbar({
                   ))
                 )}
               </div>
+              {myNotifications.length > 0 && (
+                <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginTop: '10px', textAlign: 'center' }}>
+                  <button
+                    onClick={() => {
+                      if (onNavigate) onNavigate('notifications');
+                      setShowNotifications(false);
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--primary)',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    View All in Notifications Center
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
