@@ -18,11 +18,18 @@ import Navbar from './components/Navbar';
 import Dashboard from './components/Dashboard';
 import AssetDirectory from './components/AssetDirectory';
 import AssetRegistration from './components/AssetRegistration';
+import AssetAllocation from './components/AssetAllocation';
+import ResourceBooking from './components/ResourceBooking';
+import MaintenanceManagement from './components/MaintenanceManagement';
+import AssetAudit from './components/AssetAudit';
+import AnalyticsReports from './components/AnalyticsReports';
+import NotificationsCenter from './components/NotificationsCenter';
 
 export default function App() {
   // Global relational states
   const [user, setUser] = useState(null);
   const [currentTab, setCurrentTab] = useState('dashboard');
+  const [selectedAssetIdForTab, setSelectedAssetIdForTab] = useState(null);
   const [showAssetRegistration, setShowAssetRegistration] = useState(false);
 
   // Raw catalog lists
@@ -38,46 +45,223 @@ export default function App() {
   const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
 
   // Authentication Handlers
-  const handleLogin = (selectedUser, isNewSignup = false) => {
-    setUser(selectedUser);
-    if (isNewSignup) {
-      setEmployees(prev => [...prev, selectedUser]);
-      // Trigger standard onboarding notification
-      const welcomeNotif = {
-        id: 'n-welcome-' + Date.now(),
-        employeeId: selectedUser.id,
-        title: 'Welcome to AssetFlow ERP',
-        message: `Hello ${selectedUser.name}! Your account has been registered under department Engineering.`,
-        type: 'success',
-        isRead: false,
-        timestamp: new Date().toISOString()
-      };
-      setNotifications(prev => [welcomeNotif, ...prev]);
-    }
+  const handleLogin = (employee) => {
+    setUser(employee);
+    setCurrentTab('dashboard');
   };
 
   const handleLogout = () => {
     setUser(null);
-    setCurrentTab('dashboard');
-    setShowAssetRegistration(false);
   };
 
   const handleSwitchUser = (selectedUser) => {
     setUser(selectedUser);
   };
 
-  // Asset registration handler
-  const handleRegisterAsset = (newAsset) => {
-    setAssets(prev => [newAsset, ...prev]);
+  // Asset Registration
+  const handleRegisterAsset = (newAssetData) => {
+    const newAsset = {
+      id: `a${assets.length + 1}`,
+      ...newAssetData,
+      status: 'Available',
+      currentOwnerId: null
+    };
+    setAssets(prev => [...prev, newAsset]);
     setShowAssetRegistration(false);
 
-    // Create system notification
+    // Create system audit & notification logs
     const systemNotif = {
-      id: 'n-reg-' + Date.now(),
+      id: `n${notifications.length + 1}`,
       employeeId: 'all',
-      title: 'New Asset Catalogued',
-      message: `Asset "${newAsset.name}" (Tag: ${newAsset.tag}) has been registered by ${user.name}.`,
+      title: 'New Asset Registered',
+      message: `Asset "${newAsset.name}" has been registered successfully with tag ${newAsset.tag}.`,
       type: 'info',
+      isRead: false,
+      timestamp: new Date().toISOString()
+    };
+    setNotifications(prev => [systemNotif, ...prev]);
+  };
+
+  // Stage, commit, and update operational states
+  const handleAllocateAsset = ({ assetId, employeeId, expectedReturnDate, allocatedBy }) => {
+    const newAlloc = {
+      id: `al${allocations.length + 1}`,
+      assetId,
+      employeeId,
+      allocatedDate: new Date().toISOString().split('T')[0],
+      returnDate: expectedReturnDate,
+      actualReturnDate: null,
+      allocatedBy
+    };
+    setAllocations(prev => [...prev, newAlloc]);
+
+    setAssets(prev => prev.map(a => a.id === assetId ? { ...a, status: 'Allocated', currentOwnerId: employeeId } : a));
+
+    const targetEmp = employees.find(e => e.id === employeeId);
+    const asset = assets.find(a => a.id === assetId);
+    const systemNotif = {
+      id: `n${notifications.length + 1}`,
+      employeeId,
+      title: 'Asset Allocated',
+      message: `Asset "${asset?.name}" (${asset?.tag}) has been assigned to you. Due by ${expectedReturnDate}.`,
+      type: 'info',
+      isRead: false,
+      timestamp: new Date().toISOString()
+    };
+    setNotifications(prev => [systemNotif, ...prev]);
+  };
+
+  const handleRequestTransfer = ({ assetId, fromEmployeeId, toEmployeeId, requestedBy }) => {
+    const newTransfer = {
+      id: `t${transfers.length + 1}`,
+      assetId,
+      fromEmployeeId,
+      toEmployeeId,
+      requestedBy,
+      status: 'Pending',
+      requestDate: new Date().toISOString().split('T')[0],
+      approvedBy: null,
+      approvedDate: null
+    };
+    setTransfers(prev => [...prev, newTransfer]);
+
+    const asset = assets.find(a => a.id === assetId);
+    const fromEmp = employees.find(e => e.id === fromEmployeeId);
+    const toEmp = employees.find(e => e.id === toEmployeeId);
+    const systemNotif = {
+      id: `n${notifications.length + 1}`,
+      employeeId: 'all',
+      title: 'Transfer Request Raised',
+      message: `Transfer requested for "${asset?.name}" from ${fromEmp?.name} to ${toEmp?.name} by ${requestedBy}.`,
+      type: 'warning',
+      isRead: false,
+      timestamp: new Date().toISOString()
+    };
+    setNotifications(prev => [systemNotif, ...prev]);
+  };
+
+  const handleReturnAsset = (allocationId) => {
+    const alloc = allocations.find(al => al.id === allocationId);
+    if (!alloc) return;
+
+    setAllocations(prev => prev.map(al => al.id === allocationId ? { ...al, actualReturnDate: new Date().toISOString().split('T')[0] } : al));
+
+    setAssets(prev => prev.map(a => a.id === alloc.assetId ? { ...a, status: 'Available', currentOwnerId: null } : a));
+
+    const asset = assets.find(a => a.id === alloc.assetId);
+    const systemNotif = {
+      id: `n${notifications.length + 1}`,
+      employeeId: alloc.employeeId,
+      title: 'Asset Returned',
+      message: `Asset "${asset?.name}" (${asset?.tag}) has been successfully checked in.`,
+      type: 'success',
+      isRead: false,
+      timestamp: new Date().toISOString()
+    };
+    setNotifications(prev => [systemNotif, ...prev]);
+  };
+
+  const handleBookResource = ({ resourceId, employeeId, date, startTime, endTime, purpose }) => {
+    const newBooking = {
+      id: `b${bookings.length + 1}`,
+      resourceId,
+      employeeId,
+      date,
+      startTime,
+      endTime,
+      purpose,
+      status: 'Approved',
+      bookedAt: new Date().toISOString().split('T')[0]
+    };
+    setBookings(prev => [...prev, newBooking]);
+
+    const asset = assets.find(a => a.id === resourceId);
+    const systemNotif = {
+      id: `n${notifications.length + 1}`,
+      employeeId,
+      title: 'Resource Booking Confirmed',
+      message: `Booking for "${asset?.name}" on ${date} (${startTime} - ${endTime}) has been approved.`,
+      type: 'success',
+      isRead: false,
+      timestamp: new Date().toISOString()
+    };
+    setNotifications(prev => [systemNotif, ...prev]);
+  };
+
+  const handleRaiseMaintenance = ({ assetId, reportedBy, issueDescription, priority, image }) => {
+    const newTicket = {
+      id: `m${maintenance.length + 1}`,
+      assetId,
+      reportedBy,
+      reportedDate: new Date().toISOString().split('T')[0],
+      issueDescription,
+      priority,
+      status: 'Pending',
+      technicianName: null,
+      resolutionNotes: null,
+      image
+    };
+    setMaintenance(prev => [...prev, newTicket]);
+
+    const asset = assets.find(a => a.id === assetId);
+    const systemNotif = {
+      id: `n${notifications.length + 1}`,
+      employeeId: 'all',
+      title: 'New Maintenance Ticket',
+      message: `[${priority}] Maintenance raised for "${asset?.name}" by ${reportedBy}.`,
+      type: 'warning',
+      isRead: false,
+      timestamp: new Date().toISOString()
+    };
+    setNotifications(prev => [systemNotif, ...prev]);
+  };
+
+  const handleResolveMaintenance = ({ ticketId, resolutionNotes, technicianName }) => {
+    setMaintenance(prev => prev.map(t => t.id === ticketId ? { 
+      ...t, 
+      status: 'Resolved', 
+      resolutionNotes, 
+      technicianName 
+    } : t));
+
+    const ticket = maintenance.find(t => t.id === ticketId);
+    if (ticket) {
+      const asset = assets.find(a => a.id === ticket.assetId);
+      const systemNotif = {
+        id: `n${notifications.length + 1}`,
+        employeeId: 'all',
+        title: 'Maintenance Ticket Resolved',
+        message: `Maintenance for "${asset?.name}" has been resolved by ${technicianName}.`,
+        type: 'success',
+        isRead: false,
+        timestamp: new Date().toISOString()
+      };
+      setNotifications(prev => [systemNotif, ...prev]);
+    }
+  };
+
+  const handleCompleteAuditCycle = (newAudit) => {
+    setAudits(prev => [newAudit, ...prev]);
+
+    const systemNotif = {
+      id: `n${notifications.length + 1}`,
+      employeeId: 'all',
+      title: 'Audit Cycle Completed',
+      message: `Audit run for ${newAudit.departmentName} completed by ${newAudit.auditorName}. compliance status logged.`,
+      type: 'success',
+      isRead: false,
+      timestamp: new Date().toISOString()
+    };
+    setNotifications(prev => [systemNotif, ...prev]);
+  };
+
+  const handleTriggerMockNotification = ({ title, message, type }) => {
+    const systemNotif = {
+      id: `n${notifications.length + 1}`,
+      employeeId: user?.id || 'all',
+      title,
+      message,
+      type,
       isRead: false,
       timestamp: new Date().toISOString()
     };
@@ -98,7 +282,10 @@ export default function App() {
   };
 
   // Trigger quick operations from Dashboard quick links
-  const handleOpenQuickAction = (action) => {
+  const handleOpenQuickAction = (action, assetId = null) => {
+    if (assetId) {
+      setSelectedAssetIdForTab(assetId);
+    }
     if (action === 'register') {
       setShowAssetRegistration(true);
       setCurrentTab('directory');
@@ -140,7 +327,6 @@ export default function App() {
       {/* Main workspace layout */}
       <div className="main-content">
         
-        {/* Navbar */}
         <Navbar
           currentTab={showAssetRegistration ? 'register' : currentTab}
           user={user}
@@ -149,6 +335,7 @@ export default function App() {
           notifications={notifications}
           onMarkNotificationsAsRead={handleMarkNotificationsAsRead}
           onClearNotifications={handleClearNotifications}
+          onNavigate={setCurrentTab}
         />
 
         {/* Dynamic content tab router */}
@@ -199,8 +386,78 @@ export default function App() {
                 />
               )}
 
+              {currentTab === 'allocation' && (
+                <AssetAllocation
+                  assets={assets}
+                  employees={employees}
+                  departments={departments}
+                  allocations={allocations}
+                  transfers={transfers}
+                  user={user}
+                  selectedAssetId={selectedAssetIdForTab}
+                  setSelectedAssetId={setSelectedAssetIdForTab}
+                  onAllocate={handleAllocateAsset}
+                  onRequestTransfer={handleRequestTransfer}
+                  onReturnAsset={handleReturnAsset}
+                />
+              )}
+
+              {currentTab === 'booking' && (
+                <ResourceBooking
+                  assets={assets}
+                  employees={employees}
+                  bookings={bookings}
+                  user={user}
+                  onBookResource={handleBookResource}
+                />
+              )}
+
+              {currentTab === 'maintenance' && (
+                <MaintenanceManagement
+                  assets={assets}
+                  maintenance={maintenance}
+                  user={user}
+                  selectedAssetId={selectedAssetIdForTab}
+                  setSelectedAssetId={setSelectedAssetIdForTab}
+                  onRaiseMaintenance={handleRaiseMaintenance}
+                  onResolveMaintenance={handleResolveMaintenance}
+                />
+              )}
+
+              {currentTab === 'audit' && (
+                <AssetAudit
+                  assets={assets}
+                  employees={employees}
+                  departments={departments}
+                  audits={audits}
+                  user={user}
+                  onStartAuditCycle={() => {}}
+                  onCompleteAuditCycle={handleCompleteAuditCycle}
+                />
+              )}
+
+              {currentTab === 'analytics' && (
+                <AnalyticsReports
+                  assets={assets}
+                  allocations={allocations}
+                  bookings={bookings}
+                  maintenance={maintenance}
+                  departments={departments}
+                />
+              )}
+
+              {currentTab === 'notifications' && (
+                <NotificationsCenter
+                  notifications={notifications}
+                  user={user}
+                  onMarkNotificationsAsRead={handleMarkNotificationsAsRead}
+                  onClearNotifications={handleClearNotifications}
+                  onTriggerMockNotification={handleTriggerMockNotification}
+                />
+              )}
+
               {/* Styled Placeholders for tabs to be designed in future steps */}
-              {['allocation', 'booking', 'maintenance', 'audit', 'analytics', 'setup'].includes(currentTab) && (
+              {['setup'].includes(currentTab) && (
                 <div style={{
                   padding: '40px',
                   backgroundColor: 'white',
