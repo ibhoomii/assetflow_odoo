@@ -61,18 +61,19 @@ export function AuthProvider({ children }) {
 
   const register = useCallback(async (userData) => {
     setError(null);
+
     try {
       const response = await registerUser(userData);
-      const { token: newToken, user: newUser } = response.data;
 
-      localStorage.setItem('token', newToken);
-      localStorage.setItem('user', JSON.stringify(newUser));
-      setToken(newToken);
-      setUser(newUser);
+      // Don't expect token/user yet
+      return response.data;
 
-      return newUser;
     } catch (err) {
-      const message = err.response?.data?.message || err.message || 'Registration failed. Please try again.';
+      const message =
+        err.response?.data?.message ||
+        err.message ||
+        "Registration failed.";
+
       setError(message);
       throw new Error(message);
     }

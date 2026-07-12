@@ -87,7 +87,17 @@ export default function Authentication() {
 
     setIsLoading(true);
     try {
-      await register({ name, email, password, phone, department_id: dept });
+      await register({
+        fullName: name,
+        email: email,
+        password: password,
+        phone: phone,
+        department: dept
+      });
+
+      alert("Registration Successful! Please login.");
+
+      setMode("login");
       navigate('/', { replace: true });
     } catch (err) {
       setErrorMsg(err.message || 'Registration failed.');
@@ -255,7 +265,7 @@ export default function Authentication() {
       {/* RIGHT COLUMN */}
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', backgroundColor: '#f8fafc' }}>
         <div style={{ width: '100%', maxWidth: '460px', backgroundColor: 'white', borderRadius: '16px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.05), 0 8px 10px -6px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0', padding: '40px' }}>
-          
+
           {/* Logo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '32px' }}>
             <div style={{ width: '32px', height: '32px', background: 'linear-gradient(135deg, #2563eb, #3b82f6)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '800', fontSize: '15px' }}>AF</div>
