@@ -39,8 +39,10 @@ export default function AssetDirectory({
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedLocation, setSelectedLocation] = useState('all');
+  const [selectedDepartment, setSelectedDepartment] = useState('all');
 
   const [activeDetailAsset, setActiveDetailAsset] = useState(null);
+  const [qrCodeModalAsset, setQrCodeModalAsset] = useState(null);
 
   const role = user?.role || 'Employee';
 
@@ -58,8 +60,9 @@ export default function AssetDirectory({
     const matchesCategory = selectedCategory === 'all' || a.category === selectedCategory;
     const matchesStatus = selectedStatus === 'all' || a.status === selectedStatus;
     const matchesLocation = selectedLocation === 'all' || a.location === selectedLocation;
+    const matchesDepartment = selectedDepartment === 'all' || a.departmentId === selectedDepartment;
 
-    return matchesSearch && matchesCategory && matchesStatus && matchesLocation;
+    return matchesSearch && matchesCategory && matchesStatus && matchesLocation && matchesDepartment;
   });
 
   const getStatusBadge = (status) => {
@@ -78,7 +81,20 @@ export default function AssetDirectory({
     }
   };
 
+  // Helper to lookup department details
+  const getDepartmentName = (id) => {
+    if (!id) return '-';
+    const dept = departments.find(d => d.id === id);
+    return dept ? dept.name : '-';
+  };
+
   // Helper to lookup employee details
+  const getEmployee = (id) => {
+    if (!id) return null;
+    return employees.find(e => e.id === id);
+  };
+
+  // Helper to lookup employee details name
   const getEmployeeName = (id) => {
     if (!id) return '-';
     const emp = employees.find(e => e.id === id);
@@ -256,6 +272,17 @@ export default function AssetDirectory({
               <option value="Disposed">Disposed</option>
             </select>
 
+            {/* Department Filter */}
+            <select
+              className="form-control"
+              style={{ padding: '8px 12px', fontSize: '13px' }}
+              value={selectedDepartment}
+              onChange={(e) => setSelectedDepartment(e.target.value)}
+            >
+              <option value="all">All Departments</option>
+              {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+
             {/* Location Filter */}
             <select
               className="form-control"
@@ -268,13 +295,14 @@ export default function AssetDirectory({
             </select>
 
             {/* Reset Button */}
-            {(selectedCategory !== 'all' || selectedStatus !== 'all' || selectedLocation !== 'all' || searchQuery) && (
+            {(selectedCategory !== 'all' || selectedStatus !== 'all' || selectedDepartment !== 'all' || selectedLocation !== 'all' || searchQuery) && (
               <button
                 className="btn btn-secondary"
                 style={{ fontSize: '12px', padding: '8px' }}
                 onClick={() => {
                   setSelectedCategory('all');
                   setSelectedStatus('all');
+                  setSelectedDepartment('all');
                   setSelectedLocation('all');
                   setSearchQuery('');
                 }}
@@ -325,11 +353,11 @@ export default function AssetDirectory({
                 <th>Asset Tag</th>
                 <th>Asset Name</th>
                 <th>Category</th>
-                <th>Serial Number</th>
-                <th>Condition</th>
-                <th>Location</th>
+                <th>Department</th>
                 <th>Status</th>
-                <th>Current Owner</th>
+                <th>Location</th>
+                <th>Condition</th>
+                <th>Assigned To</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
@@ -348,11 +376,24 @@ export default function AssetDirectory({
                     </div>
                   </td>
                   <td style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{asset.category}</td>
-                  <td style={{ fontFamily: 'monospace', fontSize: '12px' }}>{asset.serialNumber}</td>
-                  <td style={getConditionStyle(asset.condition)}>{asset.condition}</td>
-                  <td style={{ fontSize: '12.5px' }}>{asset.location || '-'}</td>
+                  <td style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{getDepartmentName(asset.departmentId)}</td>
                   <td>{getStatusBadge(asset.status)}</td>
-                  <td style={{ fontWeight: '500' }}>{getEmployeeName(asset.currentOwnerId)}</td>
+                  <td style={{ fontSize: '12.5px' }}>{asset.location || '-'}</td>
+                  <td style={getConditionStyle(asset.condition)}>{asset.condition}</td>
+                  <td>
+                    {asset.currentOwnerId ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <img
+                          src={getEmployee(asset.currentOwnerId)?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=60'}
+                          alt=""
+                          style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid var(--border-color)' }}
+                        />
+                        <span style={{ fontWeight: '500' }}>{getEmployee(asset.currentOwnerId)?.name || 'Unknown'}</span>
+                      </div>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Unassigned</span>
+                    )}
+                  </td>
                   <td style={{ textAlign: 'right' }}>
                     <div style={{ display: 'inline-flex', gap: '4px' }}>
                       <button
@@ -362,6 +403,14 @@ export default function AssetDirectory({
                         onClick={() => handleOpenDetailModal(asset)}
                       >
                         <Eye size={14} />
+                      </button>
+                      <button
+                        className="btn btn-secondary btn-icon"
+                        style={{ padding: '5px' }}
+                        title="QR Code Label"
+                        onClick={() => setQrCodeModalAsset(asset)}
+                      >
+                        <QrCode size={14} />
                       </button>
                       {['Admin', 'Asset Manager'].includes(role) && (
                         <>
@@ -663,6 +712,69 @@ export default function AssetDirectory({
                   </button>
                 </div>
 
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------- */}
+      {/* QR CODE OVERLAY MODAL */}
+      {/* ---------------------------------------------------- */}
+      {qrCodeModalAsset && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center' }}>
+            <div className="modal-header">
+              <h3 style={{ fontSize: '16px', fontWeight: '700' }}>Asset QR Code Label</h3>
+              <button className="modal-close" onClick={() => setQrCodeModalAsset(null)}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '12px' }}>
+              <div style={{
+                padding: '20px',
+                backgroundColor: 'white',
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-lg)',
+                boxShadow: 'var(--shadow-md)',
+                display: 'inline-flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '12px',
+                width: '100%'
+              }}>
+                <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  AssetFlow Inventory ID
+                </span>
+                <div style={{ border: '4px solid white', borderRadius: 'var(--radius-sm)', backgroundColor: 'white', padding: '4px', display: 'inline-block' }}>
+                  {renderQRCodeSVG(qrCodeModalAsset.qrCode)}
+                </div>
+                <div style={{ fontSize: '16px', fontWeight: '800', fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
+                  {qrCodeModalAsset.tag}
+                </div>
+                <div style={{ fontSize: '12.5px', fontWeight: '600', color: 'var(--text-secondary)' }}>
+                  {qrCodeModalAsset.name}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', width: '100%', marginTop: '8px' }}>
+                <button
+                  className="btn btn-primary"
+                  style={{ flex: 1 }}
+                  onClick={() => {
+                    alert(`Initiating label printing for asset tag ${qrCodeModalAsset.tag}...`);
+                  }}
+                >
+                  Print Label
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  style={{ flex: 1 }}
+                  onClick={() => setQrCodeModalAsset(null)}
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>
