@@ -32,6 +32,7 @@ export default function Sidebar({
     { id: 'maintenance', name: 'Maintenance', icon: Wrench, roles: ['Admin', 'Asset Manager', 'Department Head', 'Employee'], badgeCount: ['Admin', 'Asset Manager'].includes(role) ? pendingMaintenanceCount : 0 },
     { id: 'audit', name: 'Asset Audits', icon: ClipboardCheck, roles: ['Admin', 'Asset Manager'] },
     { id: 'analytics', name: 'Reports & Analytics', icon: BarChart3, roles: ['Admin', 'Asset Manager', 'Department Head'] },
+    { id: 'notifications', name: 'Notifications Center', icon: Bell, roles: ['Admin', 'Asset Manager', 'Department Head', 'Employee'], badgeCount: unreadNotificationsCount },
     { id: 'setup', name: 'Organization Setup', icon: Building2, roles: ['Admin'] }
   ];
 
